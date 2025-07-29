@@ -7,11 +7,12 @@ Claude API를 활용한 지능형 AI 코드 리뷰 GitHub Action입니다. Pull 
 
 ## 🌟 주요 기능
 
-- **🤖 AI 기반 코드 리뷰**: Claude AI가 코드 품질, 버그, 보안 취약점 등을 자동 검토
+- **🤖 AI 기반 코드 리뷰**: Claude AI가 코드 품질, 버그, 보안 취약점 등을 자동 검토  
 - **🌍 다국어 지원**: 한국어, 영어, 일본어, 중국어 리뷰 지원
 - **🎯 맞춤형 리뷰**: 전체, 보안, 성능, 스타일 등 다양한 리뷰 타입 선택 가능
 - **📊 상세한 리포트**: 심각도별 분류, 파일별 상세 리뷰, 개선 제안 포함
-- **💬 GitHub 통합**: PR 댓글, 인라인 코드 댓글 자동 작성
+- **💬 GitHub 통합**: PR 댓글 자동 작성 (안정성 개선)
+- **⚡ 고성능**: 병렬 처리로 2-3배 빠른 리뷰 속도 (v1.0.1+)
 
 ## 📸 스크린샷
 
@@ -62,7 +63,7 @@ jobs:
         fetch-depth: 0
     
     - name: Claude AI Code Review
-      uses: chimaek/claude-code-review-action@v1
+      uses: chimaek/claude-code-review-action@v1.0.1
       with:
         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
         github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -141,6 +142,25 @@ jobs:
     language: ko
     review_type: full
 ```
+
+## 📈 버전 히스토리
+
+### v1.0.1 (2024-12-XX) - 성능 개선 릴리즈
+
+🚀 **주요 개선사항:**
+- **병렬 파일 처리**: 여러 파일을 동시에 분석하여 **2-3배 속도 개선**
+- **파일 크기 필터링**: 100KB 초과 파일 자동 제외로 안정성 향상
+- **Claude API 최적화**: 토큰 수 2K로 제한, 파일 내용 5KB로 절삭하여 응답 속도 개선
+- **octokit 오류 수정**: GitHub API 클라이언트 초기화 문제 해결
+- **인라인 댓글 제거**: GitHub API 제약으로 인한 오류 방지, PR 댓글로 통합
+
+### v1.0.0 (2024-12-XX) - 초기 릴리즈
+
+✨ **기본 기능:**
+- Claude AI 기반 코드 리뷰
+- 다국어 지원 (한국어, 영어, 일본어, 중국어)
+- 다양한 리뷰 타입 (전체, 보안, 성능, 스타일)
+- GitHub PR/Push 이벤트 통합
 
 ## 🔧 고급 설정
 
