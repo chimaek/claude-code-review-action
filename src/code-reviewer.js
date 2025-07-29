@@ -38,20 +38,24 @@ class CodeReviewer {
     const prompt = this.buildPrompt(filename, content, diff, reviewType);
     
     try {
-      // Claude API 호출
+      // Claude API 호출 (토큰 수 증가 및 스트림 비활성화)
       const response = await this.client.messages.create({
         model: 'claude-sonnet-4-20250514', // 코드 분석에 적합한 모델
-        max_tokens: this.maxTokens,
+        max_tokens: 8000, // 토큰 수 증가로 완전한 응답 보장
         temperature: 0.1, // 일관성 있는 응답을 위해 낮은 temperature 사용
-        system: "You are a senior code reviewer. Always respond with ONLY valid JSON format. Do not include any explanation, markdown, or other text outside the JSON structure.",
+        system: "You are a senior code reviewer. CRITICAL: Always respond with complete, valid JSON format. Never truncate your response. Ensure the JSON is properly closed with all brackets and braces. Do not include any explanation, markdown, or other text outside the JSON structure.",
         messages: [{
           role: 'user',
           content: prompt
         }]
       });
 
+      const responseText = response.content[0].text;
+      console.log(`Response length: ${responseText.length} characters`);
+      console.log(`Response ends with: "${responseText.slice(-50)}"`);
+
       // API 응답을 구조화된 형식으로 파싱
-      return this.parseResponse(response.content[0].text);
+      return this.parseResponse(responseText);
     } catch (error) {
       throw new Error(`Claude API error: ${error.message}`);
     }
@@ -92,31 +96,25 @@ ${truncatedDiff ? `변경사항:\n\`\`\`diff\n${truncatedDiff}\n\`\`\`` : ''}
 ${truncatedContent}
 \`\`\`
 
-**매우 중요**: 응답은 반드시 유효한 JSON 형식으로만 작성해주세요. 어떤 설명이나 추가 텍스트도 포함하지 말고, 오직 JSON만 반환해주세요.
+**매우 중요**: 응답은 반드시 완전한 유효한 JSON만 반환하세요. 설명이나 추가 텍스트는 절대 포함하지 마세요. 간결하고 핵심적인 내용만 포함하세요.
 
-응답 형식:
+JSON 형식 (최대 5개 이슈만):
 {
-  "summary": "리뷰 요약 텍스트",
+  "summary": "간단한 요약 (50자 이내)",
   "issues": [
     {
-      "line": 10,
-      "severity": "medium",
-      "type": "bug",
-      "title": "이슈 제목",
-      "description": "상세 설명",
-      "suggestion": "개선 제안"
+      "line": 숫자_또는_null,
+      "severity": "low|medium|high|critical",
+      "type": "bug|security|performance|style|maintainability",
+      "title": "간단한 제목 (30자 이내)",
+      "description": "핵심 설명 (100자 이내)",
+      "suggestion": "개선 방법 (100자 이내)"
     }
   ],
-  "overall_score": 7
+  "overall_score": 1부터_10까지_숫자
 }
 
-주의사항:
-- line은 숫자 또는 null만 가능
-- severity는 "low", "medium", "high", "critical" 중 하나
-- type은 "bug", "security", "performance", "style", "maintainability" 중 하나  
-- overall_score는 1-10 사이의 숫자
-- 모든 문자열은 반드시 큰따옴표로 감싸기
-- 마지막 항목 뒤에 콤마 없이 작성`;
+중요: JSON을 완전히 닫아야 하며, 응답이 잘리면 안됩니다.`;
   }
 
   /**
@@ -259,8 +257,8 @@ ${truncatedContent}
       } catch (firstError) {
         console.log('First parse attempt failed:', firstError.message);
         
-        // JSON 수정 재시도
-        const fixedJson = jsonText
+        // JSON 수정 재시도 1: 기본 수정
+        let fixedJson = jsonText
           .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // 키에 따옴표 추가
           .replace(/:\s*([^",\[\]{}]+)(\s*[,}])/g, ': "$1"$2')  // 값에 따옴표 추가
           .replace(/: ""(\d+)""([,}])/g, ': $1$2')  // 숫자 값 수정
@@ -270,7 +268,17 @@ ${truncatedContent}
           parsed = JSON.parse(fixedJson);
         } catch (secondError) {
           console.log('Second parse attempt failed:', secondError.message);
-          throw new Error(`JSON parsing failed: ${firstError.message}`);
+          
+          // JSON 수정 재시도 2: 불완전한 JSON 복구
+          fixedJson = this.repairIncompleteJson(jsonText);
+          
+          try {
+            parsed = JSON.parse(fixedJson);
+            console.log('Successfully repaired incomplete JSON');
+          } catch (thirdError) {
+            console.log('Third parse attempt failed:', thirdError.message);
+            throw new Error(`JSON parsing failed: ${firstError.message}`);
+          }
         }
       }
       
@@ -316,6 +324,54 @@ ${truncatedContent}
         overallScore: 5
       };
     }
+  }
+
+  /**
+   * 불완전한 JSON을 복구하는 메서드
+   * @param {string} incompleteJson - 불완전한 JSON 문자열
+   * @returns {string} 복구된 JSON 문자열
+   */
+  repairIncompleteJson(incompleteJson) {
+    console.log('Attempting to repair incomplete JSON...');
+    
+    let repaired = incompleteJson.trim();
+    
+    // 1. 불완전한 문자열 값 처리
+    repaired = repaired.replace(/"[^"]*$/, '"incomplete"');
+    
+    // 2. 불완전한 객체 또는 배열 닫기
+    const openBraces = (repaired.match(/\{/g) || []).length;
+    const closeBraces = (repaired.match(/\}/g) || []).length;
+    const openBrackets = (repaired.match(/\[/g) || []).length;
+    const closeBrackets = (repaired.match(/\]/g) || []).length;
+    
+    // 3. 마지막 불완전한 항목 제거 (쉼표로 시작하는 불완전한 객체)
+    repaired = repaired.replace(/,\s*\{[^}]*$/, '');
+    repaired = repaired.replace(/,\s*"[^"]*":\s*"[^"]*$/, '');
+    repaired = repaired.replace(/,\s*"[^"]*":\s*$/, '');
+    
+    // 4. 누락된 큰따옴표 추가
+    repaired = repaired.replace(/:\s*([a-zA-Z][a-zA-Z0-9_]*)\s*([,}])/g, ': "$1"$2');
+    
+    // 5. 필요한 괄호 닫기
+    for (let i = closeBrackets; i < openBrackets; i++) {
+      repaired += ']';
+    }
+    for (let i = closeBraces; i < openBraces; i++) {
+      repaired += '}';
+    }
+    
+    // 6. 기본 구조가 없으면 최소 구조 생성
+    if (!repaired.includes('"summary"') || !repaired.includes('"issues"')) {
+      return JSON.stringify({
+        summary: "Code review completed but response was incomplete",
+        issues: [],
+        overall_score: 5
+      });
+    }
+    
+    console.log('Repaired JSON preview:', repaired.substring(0, 200));
+    return repaired;
   }
 }
 
