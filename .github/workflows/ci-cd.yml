@@ -5,16 +5,23 @@ on:
   push:
     branches: [ main, master ]
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [ main, master ]
   release:
     types: [created]
 
 jobs:
-  # 코드 리뷰 (자기 자신의 코드를 리뷰)
+  # 코드 리뷰 (보안 제한 적용)
   code-review:
     name: AI Code Review
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    # 본인만 자동 실행, 외부 PR은 승인 라벨 필요
+    if: |
+      github.event_name == 'push' ||
+      (github.event_name == 'pull_request' && (
+        github.event.pull_request.user.login == 'chimaek' ||
+        contains(github.event.pull_request.labels.*.name, 'code-review-approved')
+      ))
     permissions:
       contents: read
       pull-requests: write
@@ -50,6 +57,45 @@ jobs:
         max_files: 8
         severity_filter: medium
       continue-on-error: true
+
+  # 외부 PR 보안 알림
+  security-check:
+    name: External PR Security Check
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login != 'chimaek' &&
+      !contains(github.event.pull_request.labels.*.name, 'code-review-approved')
+    permissions:
+      issues: write
+      pull-requests: write
+    
+    steps:
+    - name: Security warning for external PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { owner, repo } = context.repo;
+          const prNumber = context.issue.number;
+          const prAuthor = context.payload.pull_request.user.login;
+          
+          await github.rest.issues.createComment({
+            issue_number: prNumber,
+            owner: owner,
+            repo: repo,
+            body: `🔒 **외부 기여자 PR 감지 / External Contributor PR Detected**
+            
+            @${prAuthor}님의 PR이 외부 기여자로 분류되어 자동 코드 리뷰가 비활성화되었습니다.
+            
+            **리포지토리 관리자에게:**
+            - [ ] 코드에 악성 스크립트나 의심스러운 변경사항이 없는지 확인
+            - [ ] Secrets나 환경변수에 접근하는 코드가 없는지 확인  
+            - [ ] 파일 시스템 접근이나 네트워크 요청 코드 검토
+            - [ ] 검토 완료 후 \`code-review-approved\` 라벨 추가하여 AI 리뷰 활성화
+            
+            **External contributor detected.** Auto code review disabled for security.
+            **Repository maintainer:** Review code manually, then add \`code-review-approved\` label to enable AI review.`
+          });
 
   # 빌드 및 테스트
   build:
