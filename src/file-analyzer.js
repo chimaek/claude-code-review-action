@@ -12,6 +12,7 @@ const { minimatch } = require('minimatch');
 const simpleGit = require('simple-git');
 const fs = require('fs').promises;
 const path = require('path');
+const github = require('@actions/github');
 
 class FileAnalyzer {
   /**
@@ -20,6 +21,7 @@ class FileAnalyzer {
    * @param {string} config.filePatterns - 포함할 파일 패턴 (쉼표로 구분)
    * @param {string} config.excludePatterns - 제외할 파일 패턴 (쉼표로 구분)
    * @param {number} config.maxFiles - 최대 리뷰 파일 수
+   * @param {string} config.githubToken - GitHub 토큰
    */
   constructor(config) {
     // 파일 패턴을 배열로 변환
@@ -28,6 +30,8 @@ class FileAnalyzer {
     this.maxFiles = config.maxFiles;
     // Git 작업을 위한 simple-git 인스턴스
     this.git = simpleGit();
+    // GitHub API 클라이언트 생성
+    this.octokit = github.getOctokit(config.githubToken);
   }
 
   /**
@@ -58,7 +62,7 @@ class FileAnalyzer {
    */
   async getPullRequestFiles(context) {
     // GitHub REST API를 사용하여 PR 파일 목록 조회
-    const { data: files } = await context.octokit.rest.pulls.listFiles({
+    const { data: files } = await this.octokit.rest.pulls.listFiles({
       owner: context.repo.owner,
       repo: context.repo.repo,
       pull_number: context.payload.pull_request.number,

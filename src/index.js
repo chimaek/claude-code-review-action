@@ -40,7 +40,10 @@ async function run() {
     core.info(`Starting code review for ${context.eventName}`);
 
     // 2. 필요한 컴포넌트 초기화
-    const fileAnalyzer = new FileAnalyzer(inputs);
+    const fileAnalyzer = new FileAnalyzer({
+      ...inputs,
+      githubToken: inputs.githubToken
+    });
     const codeReviewer = new CodeReviewer(inputs.anthropicApiKey, inputs.language);
     const commentManager = new CommentManager(inputs.githubToken, context);
 
