@@ -43,6 +43,7 @@ class CodeReviewer {
         model: 'claude-sonnet-4-20250514', // 코드 분석에 적합한 모델
         max_tokens: this.maxTokens,
         temperature: 0.1, // 일관성 있는 응답을 위해 낮은 temperature 사용
+        system: "You are a senior code reviewer. Always respond with ONLY valid JSON format. Do not include any explanation, markdown, or other text outside the JSON structure.",
         messages: [{
           role: 'user',
           content: prompt
@@ -79,7 +80,7 @@ class CodeReviewer {
       diff.substring(0, 1000) + '\n// ... (truncated)' : 
       diff;
     
-    // 간결한 프롬프트 구성 (속도 개선)
+    // 명확한 JSON 형식 요청
     return `${basePrompt} ${languageInstruction}
 
 파일: ${filename}
@@ -91,11 +92,21 @@ ${truncatedDiff ? `변경사항:\n\`\`\`diff\n${truncatedDiff}\n\`\`\`` : ''}
 ${truncatedContent}
 \`\`\`
 
-JSON 응답 (간결하게):
+**중요**: 반드시 아래 정확한 JSON 형식으로만 응답해주세요. 다른 텍스트는 포함하지 마세요.
+
 {
-  "summary": "요약",
-  "issues": [{"line": 0, "severity": "medium", "type": "bug", "title": "제목", "description": "설명", "suggestion": "제안"}],
-  "overall_score": 7
+  "summary": "리뷰 요약을 여기에 작성",
+  "issues": [
+    {
+      "line": 라인번호_또는_null,
+      "severity": "low|medium|high|critical",
+      "type": "bug|security|performance|style|maintainability",
+      "title": "이슈 제목",
+      "description": "상세 설명",
+      "suggestion": "개선 제안"
+    }
+  ],
+  "overall_score": 1부터_10까지의_숫자
 }`;
   }
 
