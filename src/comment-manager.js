@@ -34,9 +34,8 @@ class CommentManager {
 
     // 이벤트 타입에 따라 다른 방식으로 댓글 작성
     if (this.context.eventName === 'pull_request') {
-      // PR인 경우: 일반 댓글과 인라인 댓글 모두 작성
+      // PR인 경우: 일반 댓글만 작성 (인라인 댓글은 diff 제약으로 인해 비활성화)
       await this.postPullRequestComment(commentBody);
-      await this.postInlineComments(reviewResults);
     } else {
       // Push인 경우: 커밋 댓글만 작성
       await this.postCommitComment(commentBody);
