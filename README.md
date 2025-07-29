@@ -2,7 +2,7 @@
 
 [![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-blue.svg?logo=github-actions)](https://github.com/chimaek/claude-code-review-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.1-green.svg)](https://github.com/chimaek/claude-code-review-action/releases)
+[![Version](https://img.shields.io/badge/version-1.0.2-green.svg)](https://github.com/chimaek/claude-code-review-action/releases)
 
 Claude API를 활용한 지능형 AI 코드 리뷰 GitHub Action입니다. Pull Request와 Push 이벤트에서 자동으로 코드를 분석하고 개선 사항을 제안합니다.
 
@@ -14,6 +14,7 @@ Claude API를 활용한 지능형 AI 코드 리뷰 GitHub Action입니다. Pull 
 - **📊 상세한 리포트**: 심각도별 분류, 파일별 상세 리뷰, 개선 제안 포함
 - **💬 GitHub 통합**: PR 댓글 자동 작성 (안정성 개선)
 - **⚡ 고성능**: 병렬 처리로 2-3배 빠른 리뷰 속도 (v1.0.1+)
+- **🔧 유연한 설정**: 파일당 이슈 개수 동적 조절 가능 (v1.0.2+)
 
 ## 📸 스크린샷
 
@@ -352,6 +353,42 @@ permissions:
 ### Actions 로그
 
 - `Actions` 탭 → `AI Code Review` 워크플로우에서 실행 로그 확인
+
+## 📝 변경사항
+
+### v1.0.2 (2025-01-29)
+
+**🆕 새로운 기능**
+- `max_issues_per_file` 옵션 추가: 파일당 보고할 이슈 개수 동적 조절 (1-10개)
+- 이슈 개수에 따른 토큰 수 자동 최적화
+- 중요도 높은 이슈 우선 선별 로직 강화
+
+**🔧 개선사항**
+- Push 이벤트에서 권한 에러 해결 (commit comment → 로그 출력으로 변경)
+- JSON 파싱 안정성 대폭 향상 (3단계 복구 시스템)
+- 프롬프트 최적화로 응답 품질 개선
+
+**📚 문서화**
+- 새로운 옵션 사용법 추가
+- CI/CD 워크플로우 예시 업데이트
+
+### v1.0.1 (2025-01-28)
+
+**⚡ 성능 개선**
+- 병렬 처리 도입으로 2-3배 속도 향상
+- 메모리 사용량 최적화
+
+**🔒 보안 강화**
+- 외부 PR에 대한 보안 제한 시스템 도입
+- 수동 승인 기반 리뷰 시스템
+
+### v1.0.0 (2025-01-27)
+
+**🎉 최초 릴리스**
+- Claude AI 기반 자동 코드 리뷰
+- 다국어 지원 (한국어, 영어, 일본어, 중국어)
+- 다양한 리뷰 타입 지원
+- GitHub PR/Push 이벤트 통합
 
 ---
 

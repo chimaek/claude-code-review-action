@@ -1,6 +1,6 @@
 {
   "name": "claude-code-review-action",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "GitHub Action for AI-powered code review using Claude API",
   "main": "src/index.js",
   "scripts": {
