@@ -1,0 +1,115 @@
+# 통합 CI/CD 워크플로우
+name: CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [created]
+
+jobs:
+  # 빌드 및 테스트
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: Build
+      run: npm run build
+    
+    - name: Verify build
+      run: |
+        if [ ! -f "dist/index.js" ]; then
+          echo "Build failed: dist/index.js not found"
+          exit 1
+        fi
+        echo "Build successful"
+
+  # main 브랜치 push 시 dist 자동 업데이트
+  update-dist:
+    name: Update dist
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Build and commit
+      run: |
+        npm ci
+        npm run build
+        
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        
+        if ! git diff --quiet dist/; then
+          git add dist/
+          git commit -m "chore: update dist [skip ci]"
+          git push
+        fi
+
+  # 릴리스 생성 시 자동 배포
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Build for release
+      run: |
+        npm ci
+        npm run build
+    
+    - name: Update release assets
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // dist.zip 생성
+          const { execSync } = require('child_process');
+          execSync('zip -r dist.zip dist/');
+          
+          // 릴리스에 dist.zip 추가
+          const release = context.payload.release;
+          await github.rest.repos.uploadReleaseAsset({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            release_id: release.id,
+            name: 'dist.zip',
+            data: fs.readFileSync('dist.zip')
+          });
