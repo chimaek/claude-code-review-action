@@ -23,6 +23,10 @@ async function run() {
   try {
     // 1. 액션 입력값 수집
     // core.getInput()을 통해 action.yml에 정의된 입력값들을 가져옵니다
+    console.log('Raw inputs from GitHub Action:');
+    console.log('file_patterns input:', core.getInput('file_patterns'));
+    console.log('exclude_patterns input:', core.getInput('exclude_patterns'));
+    
     const inputs = {
       anthropicApiKey: core.getInput('anthropic_api_key', { required: true }),
       githubToken: core.getInput('github_token', { required: true }),
@@ -33,6 +37,11 @@ async function run() {
       language: core.getInput('language') || 'en',
       severityFilter: core.getInput('severity_filter') || 'medium'
     };
+    
+    console.log('Final inputs used:', {
+      filePatterns: inputs.filePatterns,
+      excludePatterns: inputs.excludePatterns
+    });
 
     // GitHub 컨텍스트 정보 가져오기
     // PR 정보, 커밋 정보, 리포지토리 정보 등이 포함됨
