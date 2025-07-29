@@ -1,0 +1,109 @@
+name: Claude AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  # 푸시 이벤트도 특정 사용자만 허용
+  push:
+    branches: [main, master]
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    
+    # 본인만 자동 실행, 다른 사용자는 승인 라벨 필요
+    if: |
+      github.event_name == 'push' ||
+      github.event.pull_request.user.login == 'pipir' ||
+      contains(github.event.pull_request.labels.*.name, 'code-review-approved')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Run Claude Code Review
+        uses: ./
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          review_type: full
+          language: ko
+          max_files: 8
+          severity_filter: medium
+          
+      - name: Add comment for external PRs
+        if: |
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login != 'pipir' &&
+          !contains(github.event.pull_request.labels.*.name, 'code-review-approved')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🤖 **Claude AI 코드 리뷰 대기 중**
+              
+              외부 기여자의 PR입니다. 보안상의 이유로 자동 코드 리뷰가 비활성화되었습니다.
+              
+              **리포지토리 관리자에게:**
+              - 코드를 검토한 후 \`code-review-approved\` 라벨을 추가하면 AI 리뷰가 실행됩니다.
+              - 또는 수동으로 코드를 리뷰해주세요.
+              
+              **External contributor PR detected.** Auto code review is disabled for security.
+              Repository maintainer: Add \`code-review-approved\` label to enable AI review.`
+            })
+
+  # 별도 잡으로 권한 체크
+  security-check:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check PR security
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.issue.number;
+            const prAuthor = context.payload.pull_request.user.login;
+            
+            // 허용된 사용자 목록
+            const allowedUsers = ['pipir'];
+            
+            // 조직 멤버 체크 (선택사항)
+            try {
+              const membership = await github.rest.orgs.getMembershipForUser({
+                org: owner,
+                username: prAuthor
+              });
+              
+              if (membership.data.state === 'active') {
+                console.log(`User ${prAuthor} is organization member`);
+                return;
+              }
+            } catch (error) {
+              console.log(`Not an organization or user not a member: ${error.message}`);
+            }
+            
+            // 허용된 사용자가 아닌 경우 경고 코멘트
+            if (!allowedUsers.includes(prAuthor)) {
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: owner,
+                repo: repo,
+                body: `⚠️ **보안 알림 / Security Notice**
+                
+                외부 기여자의 PR이 감지되었습니다. 다음 사항을 확인해주세요:
+                
+                **리포지토리 관리자 체크리스트:**
+                - [ ] 코드에 악성 스크립트나 의심스러운 변경사항이 없는지 확인
+                - [ ] Secrets나 환경변수에 접근하는 코드가 없는지 확인  
+                - [ ] 파일 시스템에 접근하거나 네트워크 요청을 하는 코드 검토
+                - [ ] 검토 완료 후 \`code-review-approved\` 라벨 추가
+                
+                **External PR detected.** Please review for security before approving automated workflows.`
+              });
+            }
