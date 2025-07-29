@@ -37,8 +37,12 @@ class CommentManager {
       // PR인 경우: 일반 댓글만 작성 (인라인 댓글은 diff 제약으로 인해 비활성화)
       await this.postPullRequestComment(commentBody);
     } else {
-      // Push인 경우: 커밋 댓글만 작성
-      await this.postCommitComment(commentBody);
+      // Push인 경우: commit comment 권한 문제로 인해 콘솔 로그만 출력
+      console.log('📋 Push 이벤트 코드 리뷰 완료');
+      console.log('='.repeat(50));
+      console.log(commentBody);
+      console.log('='.repeat(50));
+      console.log(`✅ 총 ${metadata.totalFiles}개 파일에서 ${metadata.totalIssues}개 이슈 발견`);
     }
   }
 
@@ -326,20 +330,14 @@ class CommentManager {
   }
 
   /**
-   * 커밋에 댓글 작성 (Push 이벤트용)
+   * 커밋에 댓글 작성 (Push 이벤트용) - 권한 문제로 비활성화
+   * GitHub Actions의 기본 토큰으로는 commit comment 생성 권한이 없음
+   * 대신 워크플로우 로그에 리뷰 결과 출력
    * @param {string} commentBody - 댓글 본문
    */
   async postCommitComment(commentBody) {
-    try {
-      await this.octokit.rest.repos.createCommitComment({
-        owner: this.context.repo.owner,
-        repo: this.context.repo.repo,
-        commit_sha: this.context.sha,
-        body: commentBody
-      });
-    } catch (error) {
-      throw new Error(`Failed to post commit comment: ${error.message}`);
-    }
+    console.log('⚠️  Commit comment 권한 없음. 워크플로우 로그에 결과 출력');
+    console.log('리뷰 결과:', commentBody.substring(0, 200) + '...');
   }
 }
 
