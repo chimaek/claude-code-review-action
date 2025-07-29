@@ -77,10 +77,11 @@ class CommentManager {
       }
     }
 
-    // 댓글 푸터
+    // 댓글 푸터 (고유 식별자 포함)
     comment += `\n---\n`;
     comment += `*리뷰 시간: ${new Date().toISOString()}*\n`;
-    comment += `*Powered by Claude AI* 🚀`;
+    comment += `*Powered by Claude AI* 🚀\n\n`;
+    comment += `<!-- claude-code-review-action -->`;
 
     return comment;
   }
@@ -253,11 +254,20 @@ class CommentManager {
         issue_number: this.context.payload.pull_request.number
       });
 
-      // 이전에 작성한 봇 댓글 찾기
+      // 이전에 작성한 봇 댓글 찾기 (더 관대한 조건)
+      console.log('Existing comments:', comments.map(c => ({ 
+        id: c.id, 
+        user: c.user.login, 
+        userType: c.user.type,
+        bodyPreview: c.body.substring(0, 50) + '...'
+      })));
+      
       const botComment = comments.find(comment => 
-        comment.user.type === 'Bot' && 
-        comment.body.includes('🤖 Claude AI 코드 리뷰')
+        (comment.user.type === 'Bot' || comment.user.login.includes('github-actions')) && 
+        (comment.body.includes('🤖 Claude AI 코드 리뷰') || comment.body.includes('<!-- claude-code-review-action -->'))
       );
+      
+      console.log('Found existing bot comment:', botComment ? botComment.id : 'none');
 
       if (botComment) {
         // 기존 댓글 업데이트
