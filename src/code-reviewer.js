@@ -96,25 +96,10 @@ ${truncatedDiff ? `변경사항:\n\`\`\`diff\n${truncatedDiff}\n\`\`\`` : ''}
 ${truncatedContent}
 \`\`\`
 
-**매우 중요**: 응답은 반드시 완전한 유효한 JSON만 반환하세요. 설명이나 추가 텍스트는 절대 포함하지 마세요. 간결하고 핵심적인 내용만 포함하세요.
+**중요**: 완전한 JSON만 반환하세요. 최대 3개 이슈만 포함하고 간결하게 작성하세요.
 
-JSON 형식 (최대 5개 이슈만):
-{
-  "summary": "간단한 요약 (50자 이내)",
-  "issues": [
-    {
-      "line": 숫자_또는_null,
-      "severity": "low|medium|high|critical",
-      "type": "bug|security|performance|style|maintainability",
-      "title": "간단한 제목 (30자 이내)",
-      "description": "핵심 설명 (100자 이내)",
-      "suggestion": "개선 방법 (100자 이내)"
-    }
-  ],
-  "overall_score": 1부터_10까지_숫자
-}
-
-중요: JSON을 완전히 닫아야 하며, 응답이 잘리면 안됩니다.`;
+형식:
+{"summary":"요약(30자)","issues":[{"line":숫자,"severity":"low/medium/high/critical","type":"bug/security/performance/style","title":"제목(20자)","description":"설명(50자)","suggestion":"제안(50자)"}],"overall_score":숫자}`;
   }
 
   /**
@@ -336,24 +321,91 @@ JSON 형식 (최대 5개 이슈만):
     
     let repaired = incompleteJson.trim();
     
-    // 1. 불완전한 문자열 값 처리
-    repaired = repaired.replace(/"[^"]*$/, '"incomplete"');
+    // 1. 가장 마지막 완전한 이슈 찾기
+    const issuesMatch = repaired.match(/"issues":\s*\[([\s\S]*)/);
+    if (issuesMatch) {
+      const issuesContent = issuesMatch[1];
+      
+      // 완전한 이슈 객체들만 추출
+      const completeIssues = [];
+      let depth = 0;
+      let currentIssue = '';
+      let inString = false;
+      let escapeNext = false;
+      
+      for (let i = 0; i < issuesContent.length; i++) {
+        const char = issuesContent[i];
+        
+        if (escapeNext) {
+          escapeNext = false;
+          currentIssue += char;
+          continue;
+        }
+        
+        if (char === '\\') {
+          escapeNext = true;
+          currentIssue += char;
+          continue;
+        }
+        
+        if (char === '"' && !escapeNext) {
+          inString = !inString;
+        }
+        
+        if (!inString) {
+          if (char === '{') {
+            depth++;
+          } else if (char === '}') {
+            depth--;
+            
+            if (depth === 0) {
+              currentIssue += char;
+              
+              // 완전한 이슈 객체 발견
+              try {
+                const issueObj = JSON.parse(currentIssue);
+                if (issueObj.title && issueObj.description) {
+                  completeIssues.push(currentIssue);
+                }
+              } catch (e) {
+                // 파싱 실패한 객체는 무시
+              }
+              
+              currentIssue = '';
+              continue;
+            }
+          }
+        }
+        
+        currentIssue += char;
+      }
+      
+      // 복구된 JSON 생성
+      const summaryMatch = repaired.match(/"summary":\s*"([^"]*)"/) || ["", "Code review completed"];
+      const scoreMatch = repaired.match(/"overall_score":\s*(\d+)/) || ["", "5"];
+      
+      const repairedJson = {
+        summary: summaryMatch[1] || "Code review completed",
+        issues: completeIssues.map(issue => JSON.parse(issue)),
+        overall_score: parseInt(scoreMatch[1]) || 5
+      };
+      
+      console.log(`Repaired JSON with ${repairedJson.issues.length} complete issues`);
+      return JSON.stringify(repairedJson);
+    }
     
-    // 2. 불완전한 객체 또는 배열 닫기
+    // 기본 복구 로직 (위 방법이 실패한 경우)
     const openBraces = (repaired.match(/\{/g) || []).length;
     const closeBraces = (repaired.match(/\}/g) || []).length;
     const openBrackets = (repaired.match(/\[/g) || []).length;
     const closeBrackets = (repaired.match(/\]/g) || []).length;
     
-    // 3. 마지막 불완전한 항목 제거 (쉼표로 시작하는 불완전한 객체)
+    // 불완전한 마지막 부분 제거
     repaired = repaired.replace(/,\s*\{[^}]*$/, '');
-    repaired = repaired.replace(/,\s*"[^"]*":\s*"[^"]*$/, '');
-    repaired = repaired.replace(/,\s*"[^"]*":\s*$/, '');
+    repaired = repaired.replace(/,\s*"[^"]*":[^,}]*$/, '');
+    repaired = repaired.replace(/:\s*"[^"]*$/, ': "incomplete"');
     
-    // 4. 누락된 큰따옴표 추가
-    repaired = repaired.replace(/:\s*([a-zA-Z][a-zA-Z0-9_]*)\s*([,}])/g, ': "$1"$2');
-    
-    // 5. 필요한 괄호 닫기
+    // 괄호 닫기
     for (let i = closeBrackets; i < openBrackets; i++) {
       repaired += ']';
     }
@@ -361,16 +413,7 @@ JSON 형식 (최대 5개 이슈만):
       repaired += '}';
     }
     
-    // 6. 기본 구조가 없으면 최소 구조 생성
-    if (!repaired.includes('"summary"') || !repaired.includes('"issues"')) {
-      return JSON.stringify({
-        summary: "Code review completed but response was incomplete",
-        issues: [],
-        overall_score: 5
-      });
-    }
-    
-    console.log('Repaired JSON preview:', repaired.substring(0, 200));
+    console.log('Fallback repair applied');
     return repaired;
   }
 }
