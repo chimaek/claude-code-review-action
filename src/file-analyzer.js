@@ -70,10 +70,19 @@ class FileAnalyzer {
     });
 
     // 삭제된 파일은 제외하고, 실제 변경사항이 있는 파일만 반환
-    return files.filter(file => 
+    const filteredFiles = files.filter(file => 
       file.status !== 'removed' && 
       file.additions + file.deletions > 0
     );
+    
+    console.log('PR files from GitHub API:', filteredFiles.map(f => ({ 
+      filename: f.filename, 
+      status: f.status, 
+      additions: f.additions, 
+      deletions: f.deletions 
+    })));
+    
+    return filteredFiles;
   }
 
   /**
@@ -154,19 +163,29 @@ class FileAnalyzer {
    * @returns {Promise<Array>} 필터링된 파일 목록
    */
   async filterFiles(files) {
+    console.log('Starting file filtering...');
+    console.log('File patterns:', this.filePatterns);
+    console.log('Exclude patterns:', this.excludePatterns);
+    console.log('Files to filter:', files.map(f => f.filename || f));
+    
     // 1. 패턴 기반 필터링
     const patternFiltered = files.filter(file => {
+      const filename = file.filename || file;
+      
       // 포함 패턴 체크: 하나라도 매치되면 포함
       const isIncluded = this.filePatterns.some(pattern => 
-        minimatch(file.filename, pattern)
+        minimatch(filename, pattern)
       );
 
       // 제외 패턴 체크: 하나라도 매치되면 제외
       const isExcluded = this.excludePatterns.some(pattern => 
-        minimatch(file.filename, pattern)
+        minimatch(filename, pattern)
       );
 
-      return isIncluded && !isExcluded;
+      const shouldInclude = isIncluded && !isExcluded;
+      console.log(`File ${filename}: included=${isIncluded}, excluded=${isExcluded}, result=${shouldInclude}`);
+      
+      return shouldInclude;
     });
 
     // 2. 파일 크기 및 복잡도 필터링 (속도 개선)
