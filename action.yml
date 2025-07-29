@@ -1,0 +1,72 @@
+# GitHub Action의 기본 메타데이터 정의
+name: 'Claude AI Code Review'
+description: 'AI-powered code review using Claude API for pull requests and commits'
+author: 'chimaek'
+
+# GitHub Marketplace에서 표시될 브랜딩 정보
+branding:
+  icon: 'eye'        # 코드 리뷰를 나타내는 눈 아이콘
+  color: 'purple'    # Claude AI의 브랜드 색상
+
+# 액션에 전달되는 입력 파라미터들
+inputs:
+  # 필수 입력값들
+  anthropic_api_key:
+    description: 'Anthropic API key for Claude'
+    required: true    # Claude API 호출에 필수
+  
+  github_token:
+    description: 'GitHub token for posting comments'
+    required: true
+    default: ${{ github.token }}  # GitHub가 자동으로 제공하는 토큰 사용
+  
+  # 선택적 입력값들 - 리뷰 설정
+  review_type:
+    description: 'Type of review: full, security, performance, style'
+    required: false
+    default: 'full'   # 기본값: 전체 리뷰
+  
+  # 파일 필터링 설정
+  file_patterns:
+    description: 'File patterns to review (comma-separated)'
+    required: false
+    # 지원하는 주요 프로그래밍 언어 파일들
+    default: '**/*.js,**/*.ts,**/*.jsx,**/*.tsx,**/*.py,**/*.java,**/*.go,**/*.rs'
+  
+  exclude_patterns:
+    description: 'File patterns to exclude (comma-separated)'
+    required: false
+    # 빌드 산출물과 외부 라이브러리는 제외
+    default: '**/node_modules/**,**/dist/**,**/build/**'
+  
+  # 리뷰 범위 제한
+  max_files:
+    description: 'Maximum number of files to review'
+    required: false
+    default: '10'     # API 호출 비용 관리를 위한 제한
+  
+  # 국제화 설정
+  language:
+    description: 'Review language (ko, en, ja, zh)'
+    required: false
+    default: 'en'     # 기본값: 영어
+  
+  # 이슈 필터링
+  severity_filter:
+    description: 'Minimum severity to report (low, medium, high, critical)'
+    required: false
+    default: 'medium' # 중요도 중간 이상의 이슈만 보고
+
+# 액션의 출력값들
+outputs:
+  review_summary:
+    description: 'Summary of the code review'
+  issues_found:
+    description: 'Number of issues found'
+  files_reviewed:
+    description: 'Number of files reviewed'
+
+# 액션 실행 환경 설정
+runs:
+  using: 'node20'           # Node.js 20 버전 사용
+  main: 'dist/index.js'     # 빌드된 JavaScript 파일 실행
