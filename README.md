@@ -17,7 +17,7 @@ Claude API를 활용한 지능형 AI 코드 리뷰 GitHub Action입니다. Pull 
 ## 📸 스크린샷
 
 ### PR 리뷰 댓글 예시
-![PR Review Comment](https://github.com/chimaek/claude-code-review-action/tree/master/example/images/pr_example.png)
+![PR Review Comment](https://github.com/chimaek/claude-code-review-action/blob/master/example/images/pr_example.png)
 
 
 ## 🚀 빠른 시작
