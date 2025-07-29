@@ -77,11 +77,10 @@ class CommentManager {
       }
     }
 
-    // 댓글 푸터 (고유 식별자 포함)
+    // 댓글 푸터
     comment += `\n---\n`;
     comment += `*리뷰 시간: ${new Date().toISOString()}*\n`;
-    comment += `*Powered by Claude AI* 🚀\n\n`;
-    comment += `<!-- claude-code-review-action -->`;
+    comment += `*Powered by Claude AI* 🚀`;
 
     return comment;
   }
@@ -247,45 +246,13 @@ class CommentManager {
    */
   async postPullRequestComment(commentBody) {
     try {
-      // 기존 봇 댓글 찾기 (중복 방지)
-      const { data: comments } = await this.octokit.rest.issues.listComments({
+      // 항상 새 댓글 생성
+      await this.octokit.rest.issues.createComment({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
-        issue_number: this.context.payload.pull_request.number
+        issue_number: this.context.payload.pull_request.number,
+        body: commentBody
       });
-
-      // 이전에 작성한 봇 댓글 찾기 (더 관대한 조건)
-      console.log('Existing comments:', comments.map(c => ({ 
-        id: c.id, 
-        user: c.user.login, 
-        userType: c.user.type,
-        bodyPreview: c.body.substring(0, 50) + '...'
-      })));
-      
-      const botComment = comments.find(comment => 
-        (comment.user.type === 'Bot' || comment.user.login.includes('github-actions')) && 
-        (comment.body.includes('🤖 Claude AI 코드 리뷰') || comment.body.includes('<!-- claude-code-review-action -->'))
-      );
-      
-      console.log('Found existing bot comment:', botComment ? botComment.id : 'none');
-
-      if (botComment) {
-        // 기존 댓글 업데이트
-        await this.octokit.rest.issues.updateComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          comment_id: botComment.id,
-          body: commentBody
-        });
-      } else {
-        // 새 댓글 생성
-        await this.octokit.rest.issues.createComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          issue_number: this.context.payload.pull_request.number,
-          body: commentBody
-        });
-      }
     } catch (error) {
       throw new Error(`Failed to post PR comment: ${error.message}`);
     }

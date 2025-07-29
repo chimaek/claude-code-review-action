@@ -185,8 +185,6 @@ ${truncatedContent}
    */
   parseResponse(responseText) {
     try {
-      console.log('Raw Claude response:', responseText);
-      
       // 1. 여러 방법으로 JSON 추출 시도
       let jsonText = null;
       
@@ -225,8 +223,6 @@ ${truncatedContent}
         .replace(/\t/g, '\\t')   // 탭 문자 이스케이프
         .replace(/\r/g, '\\r');  // 캐리지 리턴 이스케이프
       
-      console.log('Cleaned JSON text:', jsonText);
-      
       // 3. JSON 파싱 시도
       const parsed = JSON.parse(jsonText);
       
@@ -254,9 +250,6 @@ ${truncatedContent}
         overallScore: parsed.overall_score || 5
       };
     } catch (error) {
-      console.error('JSON parsing failed:', error.message);
-      console.error('Problematic text:', responseText);
-      
       // JSON 파싱 실패 시 fallback 응답 생성
       return {
         summary: 'Code review completed, but response parsing failed.',
