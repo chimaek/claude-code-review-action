@@ -16,12 +16,15 @@ class CodeReviewer {
    * CodeReviewer 생성자
    * @param {string} apiKey - Anthropic API 키
    * @param {string} language - 리뷰 언어 (ko, en, ja, zh)
+   * @param {number} maxIssuesPerFile - 파일당 최대 이슈 개수 (1-10)
    */
-  constructor(apiKey, language = 'en') {
+  constructor(apiKey, language = 'en', maxIssuesPerFile = 3) {
     // Claude API 클라이언트 초기화
     this.client = new Anthropic({ apiKey });
     this.language = language;
-    this.maxTokens = 4000; // Claude 응답 최대 토큰 수 (JSON 완성도 향상)
+    this.maxIssuesPerFile = Math.max(1, Math.min(10, maxIssuesPerFile)); // 1-10 범위로 제한
+    // 이슈 개수에 따라 토큰 수 동적 조정 (더 많은 이슈 = 더 많은 토큰 필요)
+    this.maxTokens = Math.min(8000, 3000 + (this.maxIssuesPerFile * 500));
   }
 
   /**
@@ -96,10 +99,12 @@ ${truncatedDiff ? `변경사항:\n\`\`\`diff\n${truncatedDiff}\n\`\`\`` : ''}
 ${truncatedContent}
 \`\`\`
 
-**중요**: 완전한 JSON만 반환하세요. 최대 3개 이슈만 포함하고 간결하게 작성하세요.
+**중요**: 완전한 JSON만 반환하세요. 최대 ${this.maxIssuesPerFile}개 이슈만 포함하고 간결하게 작성하세요.
 
 형식:
-{"summary":"요약(30자)","issues":[{"line":숫자,"severity":"low/medium/high/critical","type":"bug/security/performance/style","title":"제목(20자)","description":"설명(50자)","suggestion":"제안(50자)"}],"overall_score":숫자}`;
+{"summary":"요약(30자)","issues":[{"line":숫자,"severity":"low/medium/high/critical","type":"bug/security/performance/style/maintainability","title":"제목(20자)","description":"설명(50자)","suggestion":"제안(50자)"}],"overall_score":숫자}
+
+중요도 높은 이슈부터 우선적으로 ${this.maxIssuesPerFile}개까지 선별해서 보고하세요.`;
   }
 
   /**

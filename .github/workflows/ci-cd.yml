@@ -55,6 +55,7 @@ jobs:
         file_patterns: "**/*.js,**/*.ts,**/*.jsx,**/*.tsx,**/*.py,**/*.java,**/*.go,**/*.rs"
         exclude_patterns: "dist/**,node_modules/**,test/**"
         max_files: 8
+        max_issues_per_file: 5  # 파일당 최대 5개 이슈 (기본값 3에서 증가)
         severity_filter: medium
       continue-on-error: true
 

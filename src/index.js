@@ -30,6 +30,7 @@ async function run() {
       filePatterns: core.getInput('file_patterns') || '**/*.js,**/*.ts,**/*.jsx,**/*.tsx,**/*.py,**/*.java,**/*.go,**/*.rs',
       excludePatterns: core.getInput('exclude_patterns') || '**/node_modules/**,**/dist/**,**/build/**',
       maxFiles: parseInt(core.getInput('max_files') || '10'),
+      maxIssuesPerFile: Math.max(1, Math.min(10, parseInt(core.getInput('max_issues_per_file') || '3'))), // 1-10 범위로 제한
       language: core.getInput('language') || 'en',
       severityFilter: core.getInput('severity_filter') || 'medium'
     };
@@ -44,7 +45,7 @@ async function run() {
       ...inputs,
       githubToken: inputs.githubToken
     });
-    const codeReviewer = new CodeReviewer(inputs.anthropicApiKey, inputs.language);
+    const codeReviewer = new CodeReviewer(inputs.anthropicApiKey, inputs.language, inputs.maxIssuesPerFile);
     const commentManager = new CommentManager(inputs.githubToken, context);
 
     // 3. 변경된 파일 목록 가져오기

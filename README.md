@@ -91,6 +91,7 @@ jobs:
           review_type: full
           language: ko
           max_files: 8
+          max_issues_per_file: 5  # 파일당 최대 5개 이슈 보고
           severity_filter: medium
 ```
 
@@ -111,7 +112,8 @@ jobs:
 | `language`         | 리뷰 언어 (`ko`, `en`, `ja`, `zh`)                     | `en`                                                                  |
 | `file_patterns`    | 리뷰할 파일 패턴 (쉼표 구분)                                  | `**/*.js,**/*.ts,**/*.jsx,**/*.tsx,**/*.py,**/*.java,**/*.go,**/*.rs` |
 | `exclude_patterns` | 제외할 파일 패턴 (쉼표 구분)                                  | `**/node_modules/**,**/dist/**,**/build/**`                           |
-| `max_files`        | 최대 리뷰 파일 수                                         | `8`                                                                   |
+| `max_files`        | 최대 리뷰 파일 수                                         | `10`                                                                  |
+| `max_issues_per_file` | 파일당 최대 이슈 개수 (1-10)                             | `3`                                                                   |
 | `severity_filter`  | 최소 심각도 필터 (`low`, `medium`, `high`, `critical`)    | `medium`                                                              |
 
 ### 출력값
@@ -272,6 +274,7 @@ jobs:
           review_type: full
           language: ko
           max_files: 8
+          max_issues_per_file: 5  # 파일당 최대 5개 이슈 보고
           severity_filter: medium
           file_patterns: "src/**/*.{js,ts,jsx,tsx,py}"
           exclude_patterns: "**/*.test.*,**/*.spec.*,**/node_modules/**"

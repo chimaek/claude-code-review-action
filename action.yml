@@ -45,6 +45,11 @@ inputs:
     required: false
     default: '10'     # API 호출 비용 관리를 위한 제한
   
+  max_issues_per_file:
+    description: 'Maximum number of issues to report per file (1-10)'
+    required: false
+    default: '3'      # 기본값: 파일당 3개 이슈
+  
   # 국제화 설정
   language:
     description: 'Review language (ko, en, ja, zh)'
