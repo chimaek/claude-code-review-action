@@ -43,8 +43,8 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         review_type: full
         language: ko
-        file_patterns: "src/**/*.js,*.yml,*.json,*.md"
-        exclude_patterns: "dist/**,node_modules/**"
+        file_patterns: "src/**/*.js,test-files/**/*.js,*.yml,*.json,*.md"
+        exclude_patterns: "dist/**,node_modules/**,test/**"
         max_files: 15
         severity_filter: medium
       continue-on-error: true
