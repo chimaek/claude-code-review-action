@@ -45,7 +45,7 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         review_type: full
         language: ko
-        file_patterns: "src/**/*.js,test-files/**/*.js,*.yml,*.json,*.md"
+        file_patterns: "**/*.js,**/*.ts,**/*.jsx,**/*.tsx,**/*.py,**/*.java,**/*.go,**/*.rs"
         exclude_patterns: "dist/**,node_modules/**,test/**"
         max_files: 8
         severity_filter: medium

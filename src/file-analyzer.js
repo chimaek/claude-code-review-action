@@ -156,14 +156,16 @@ class FileAnalyzer {
   async filterFiles(files) {
     // 1. 패턴 기반 필터링
     const patternFiltered = files.filter(file => {
+      const filename = file.filename || file;
+      
       // 포함 패턴 체크: 하나라도 매치되면 포함
       const isIncluded = this.filePatterns.some(pattern => 
-        minimatch(file.filename, pattern)
+        minimatch(filename, pattern)
       );
 
       // 제외 패턴 체크: 하나라도 매치되면 제외
       const isExcluded = this.excludePatterns.some(pattern => 
-        minimatch(file.filename, pattern)
+        minimatch(filename, pattern)
       );
 
       return isIncluded && !isExcluded;

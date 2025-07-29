@@ -246,36 +246,13 @@ class CommentManager {
    */
   async postPullRequestComment(commentBody) {
     try {
-      // 기존 봇 댓글 찾기 (중복 방지)
-      const { data: comments } = await this.octokit.rest.issues.listComments({
+      // 항상 새 댓글 생성
+      await this.octokit.rest.issues.createComment({
         owner: this.context.repo.owner,
         repo: this.context.repo.repo,
-        issue_number: this.context.payload.pull_request.number
+        issue_number: this.context.payload.pull_request.number,
+        body: commentBody
       });
-
-      // 이전에 작성한 봇 댓글 찾기
-      const botComment = comments.find(comment => 
-        comment.user.type === 'Bot' && 
-        comment.body.includes('🤖 Claude AI 코드 리뷰')
-      );
-
-      if (botComment) {
-        // 기존 댓글 업데이트
-        await this.octokit.rest.issues.updateComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          comment_id: botComment.id,
-          body: commentBody
-        });
-      } else {
-        // 새 댓글 생성
-        await this.octokit.rest.issues.createComment({
-          owner: this.context.repo.owner,
-          repo: this.context.repo.repo,
-          issue_number: this.context.payload.pull_request.number,
-          body: commentBody
-        });
-      }
     } catch (error) {
       throw new Error(`Failed to post PR comment: ${error.message}`);
     }
