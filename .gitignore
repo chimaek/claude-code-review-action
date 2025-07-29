@@ -136,6 +136,10 @@ Thumbs.db
 *.iws
 *.ipr
 
+# Claude Code 관련 파일 (완전 제외)
+.claude/
+CLAUDE.md
+
 # 테스트 관련
 test-results/
 playwright-report/
