@@ -21,7 +21,7 @@ class CodeReviewer {
     // Claude API 클라이언트 초기화
     this.client = new Anthropic({ apiKey });
     this.language = language;
-    this.maxTokens = 4000; // Claude 응답 최대 토큰 수
+    this.maxTokens = 2000; // Claude 응답 최대 토큰 수 (속도 개선)
   }
 
   /**
@@ -70,39 +70,32 @@ class CodeReviewer {
     // 언어별 지시사항
     const languageInstruction = this.getLanguageInstruction();
     
-    // 최종 프롬프트 구성
-    return `${basePrompt}
+    // 파일 내용 길이 제한 (속도 개선)
+    const truncatedContent = content.length > 5000 ? 
+      content.substring(0, 5000) + '\n// ... (truncated for performance)' : 
+      content;
+    
+    const truncatedDiff = diff && diff.length > 1000 ? 
+      diff.substring(0, 1000) + '\n// ... (truncated)' : 
+      diff;
+    
+    // 간결한 프롬프트 구성 (속도 개선)
+    return `${basePrompt} ${languageInstruction}
 
-${languageInstruction}
+파일: ${filename}
 
-파일명: ${filename}
+${truncatedDiff ? `변경사항:\n\`\`\`diff\n${truncatedDiff}\n\`\`\`` : ''}
 
-변경 사항 (Git Diff):
-\`\`\`diff
-${diff}
+코드:
+\`\`\`
+${truncatedContent}
 \`\`\`
 
-전체 파일 내용:
-\`\`\`
-${content}
-\`\`\`
-
-다음 JSON 형식으로 응답해주세요:
+JSON 응답 (간결하게):
 {
-  "summary": "전체 리뷰 요약",
-  "issues": [
-    {
-      "line": 행번호,
-      "severity": "low|medium|high|critical",
-      "type": "bug|security|performance|style|maintainability|best-practice",
-      "title": "이슈 제목",
-      "description": "상세 설명",
-      "suggestion": "개선 제안",
-      "code_example": "개선된 코드 예시 (선택사항)"
-    }
-  ],
-  "positive_feedback": ["잘 작성된 부분들"],
-  "overall_score": 점수(1-10)
+  "summary": "요약",
+  "issues": [{"line": 0, "severity": "medium", "type": "bug", "title": "제목", "description": "설명", "suggestion": "제안"}],
+  "overall_score": 7
 }`;
   }
 

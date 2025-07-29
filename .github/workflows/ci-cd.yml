@@ -45,7 +45,7 @@ jobs:
         language: ko
         file_patterns: "src/**/*.js,test-files/**/*.js,*.yml,*.json,*.md"
         exclude_patterns: "dist/**,node_modules/**,test/**"
-        max_files: 15
+        max_files: 8
         severity_filter: medium
       continue-on-error: true
 

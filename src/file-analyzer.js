@@ -155,7 +155,7 @@ class FileAnalyzer {
    */
   async filterFiles(files) {
     // 1. 패턴 기반 필터링
-    const filtered = files.filter(file => {
+    const patternFiltered = files.filter(file => {
       // 포함 패턴 체크: 하나라도 매치되면 포함
       const isIncluded = this.filePatterns.some(pattern => 
         minimatch(file.filename, pattern)
@@ -169,11 +169,50 @@ class FileAnalyzer {
       return isIncluded && !isExcluded;
     });
 
-    // 2. 파일 크기로 정렬 (작은 파일부터 리뷰)
-    const sortedFiles = await this.sortFilesBySize(filtered);
+    // 2. 파일 크기 및 복잡도 필터링 (속도 개선)
+    const sizeFiltered = await this.filterByFileSize(patternFiltered);
     
-    // 3. 최대 파일 수 제한 적용
+    // 3. 파일 크기로 정렬 (작은 파일부터 리뷰)
+    const sortedFiles = await this.sortFilesBySize(sizeFiltered);
+    
+    // 4. 최대 파일 수 제한 적용
     return sortedFiles.slice(0, this.maxFiles);
+  }
+
+  /**
+   * 파일 크기 기반 필터링 (너무 큰 파일 제외로 속도 개선)
+   * @param {Array} files - 파일 목록
+   * @returns {Promise<Array>} 크기 필터링된 파일 목록
+   */
+  async filterByFileSize(files) {
+    const MAX_FILE_SIZE = 100 * 1024; // 100KB 제한
+    const MIN_FILE_SIZE = 10; // 10 bytes 이상
+    
+    const sizeCheckedFiles = await Promise.all(
+      files.map(async (file) => {
+        try {
+          const stats = await fs.stat(file.filename);
+          
+          // 너무 크거나 작은 파일 제외
+          if (stats.size > MAX_FILE_SIZE) {
+            console.warn(`Skipping large file: ${file.filename} (${stats.size} bytes)`);
+            return null;
+          }
+          
+          if (stats.size < MIN_FILE_SIZE) {
+            console.warn(`Skipping tiny file: ${file.filename} (${stats.size} bytes)`);
+            return null;
+          }
+          
+          return { ...file, size: stats.size };
+        } catch (error) {
+          console.warn(`Cannot access file: ${file.filename}`);
+          return null;
+        }
+      })
+    );
+
+    return sizeCheckedFiles.filter(file => file !== null);
   }
 
   /**

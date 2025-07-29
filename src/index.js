@@ -72,14 +72,18 @@ async function run() {
     let totalIssues = 0;
     const reviewResults = [];
 
-    // 5. 각 파일에 대해 AI 리뷰 실행
-    for (const file of filesToReview) {
+    // 5. 병렬로 각 파일에 대해 AI 리뷰 실행 (속도 개선)
+    core.info(`Starting parallel review of ${filesToReview.length} files...`);
+    
+    const reviewPromises = filesToReview.map(async (file) => {
       try {
         core.info(`Reviewing file: ${file.filename}`);
         
-        // 파일 내용과 diff 가져오기
-        const fileContent = await fileAnalyzer.getFileContent(file);
-        const diff = await fileAnalyzer.getFileDiff(file);
+        // 파일 내용과 diff를 병렬로 가져오기
+        const [fileContent, diff] = await Promise.all([
+          fileAnalyzer.getFileContent(file),
+          fileAnalyzer.getFileDiff(file)
+        ]);
         
         // Claude AI를 통한 코드 리뷰 실행
         const review = await codeReviewer.reviewFile({
@@ -97,19 +101,32 @@ async function run() {
           );
           
           if (filteredIssues.length > 0) {
-            totalIssues += filteredIssues.length;
-            reviewResults.push({
+            return {
               file: file.filename,
               issues: filteredIssues,
               summary: review.summary
-            });
+            };
           }
         }
+        
+        return null;
       } catch (error) {
         // 개별 파일 리뷰 실패 시 경고만 출력하고 계속 진행
         core.warning(`Failed to review file ${file.filename}: ${error.message}`);
+        return null;
       }
-    }
+    });
+
+    // 모든 리뷰 완료까지 대기
+    const parallelResults = await Promise.all(reviewPromises);
+    
+    // null이 아닌 결과만 수집
+    parallelResults.forEach(result => {
+      if (result) {
+        totalIssues += result.issues.length;
+        reviewResults.push(result);
+      }
+    });
 
     // 6. 리뷰 결과를 GitHub에 댓글로 작성
     if (reviewResults.length > 0) {
