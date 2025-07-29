@@ -92,22 +92,31 @@ ${truncatedDiff ? `변경사항:\n\`\`\`diff\n${truncatedDiff}\n\`\`\`` : ''}
 ${truncatedContent}
 \`\`\`
 
-**중요**: 반드시 아래 정확한 JSON 형식으로만 응답해주세요. 다른 텍스트는 포함하지 마세요.
+**매우 중요**: 응답은 반드시 유효한 JSON 형식으로만 작성해주세요. 어떤 설명이나 추가 텍스트도 포함하지 말고, 오직 JSON만 반환해주세요.
 
+응답 형식:
 {
-  "summary": "리뷰 요약을 여기에 작성",
+  "summary": "리뷰 요약 텍스트",
   "issues": [
     {
-      "line": 라인번호_또는_null,
-      "severity": "low|medium|high|critical",
-      "type": "bug|security|performance|style|maintainability",
+      "line": 10,
+      "severity": "medium",
+      "type": "bug",
       "title": "이슈 제목",
       "description": "상세 설명",
       "suggestion": "개선 제안"
     }
   ],
-  "overall_score": 1부터_10까지의_숫자
-}`;
+  "overall_score": 7
+}
+
+주의사항:
+- line은 숫자 또는 null만 가능
+- severity는 "low", "medium", "high", "critical" 중 하나
+- type은 "bug", "security", "performance", "style", "maintainability" 중 하나  
+- overall_score는 1-10 사이의 숫자
+- 모든 문자열은 반드시 큰따옴표로 감싸기
+- 마지막 항목 뒤에 콤마 없이 작성`;
   }
 
   /**
@@ -185,81 +194,122 @@ ${truncatedContent}
    */
   parseResponse(responseText) {
     try {
-      // 1. 여러 방법으로 JSON 추출 시도
+      // 디버깅을 위한 원본 응답 로깅
+      console.log('Raw Claude response:', responseText.substring(0, 500));
+      
+      // 1. 응답 텍스트 전처리
+      let cleanedText = responseText.trim();
+      
+      // 2. 여러 방법으로 JSON 추출 시도
       let jsonText = null;
       
       // 방법 1: 마크다운 코드 블록에서 추출
-      const codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      const codeBlockMatch = cleanedText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
       if (codeBlockMatch) {
-        jsonText = codeBlockMatch[1];
+        jsonText = codeBlockMatch[1].trim();
       }
       
-      // 방법 2: 일반 JSON 패턴 매칭
+      // 방법 2: 일반 JSON 패턴 매칭 (가장 완전한 JSON 찾기)
       if (!jsonText) {
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          jsonText = jsonMatch[0];
+        const jsonMatches = cleanedText.match(/\{[\s\S]*?\}/g);
+        if (jsonMatches && jsonMatches.length > 0) {
+          // 가장 긴 JSON 객체 선택 (더 완전할 가능성)
+          jsonText = jsonMatches.reduce((longest, current) => 
+            current.length > longest.length ? current : longest
+          );
         }
       }
       
       // 방법 3: 첫 번째 { 부터 마지막 } 까지
       if (!jsonText) {
-        const firstBrace = responseText.indexOf('{');
-        const lastBrace = responseText.lastIndexOf('}');
+        const firstBrace = cleanedText.indexOf('{');
+        const lastBrace = cleanedText.lastIndexOf('}');
         if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          jsonText = responseText.substring(firstBrace, lastBrace + 1);
+          jsonText = cleanedText.substring(firstBrace, lastBrace + 1);
         }
       }
       
       if (!jsonText) {
-        throw new Error('No JSON found in response');
+        throw new Error('No JSON structure found in response');
       }
       
-      // 2. JSON 정리 (일반적인 파싱 오류 수정)
+      console.log('Extracted JSON text:', jsonText.substring(0, 200));
+      
+      // 3. JSON 정리 및 수정
       jsonText = jsonText
-        .replace(/,\s*}/g, '}')  // 마지막 콤마 제거
-        .replace(/,\s*]/g, ']')  // 배열 마지막 콤마 제거
-        .replace(/\n/g, '\\n')   // 개행 문자 이스케이프
-        .replace(/\t/g, '\\t')   // 탭 문자 이스케이프
-        .replace(/\r/g, '\\r');  // 캐리지 리턴 이스케이프
+        // 잘못된 콤마 제거
+        .replace(/,(\s*[}\]])/g, '$1')
+        // 문자열 내 특수문자 처리
+        .replace(/\\/g, '\\\\')  // 백슬래시 이스케이프
+        .replace(/\n/g, ' ')     // 개행을 공백으로 변경
+        .replace(/\r/g, '')      // 캐리지 리턴 제거
+        .replace(/\t/g, ' ')     // 탭을 공백으로 변경
+        // 잘못된 따옴표 수정
+        .replace(/"/g, '"')      // 유니코드 따옴표 정규화
+        .replace(/"/g, '"')
+        .replace(/'/g, "'")      // 작은따옴표 정규화
+        // 여분의 공백 제거
+        .replace(/\s+/g, ' ')
+        .trim();
       
-      // 3. JSON 파싱 시도
-      const parsed = JSON.parse(jsonText);
+      // 4. JSON 파싱 시도 (여러 번 시도)
+      let parsed;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch (firstError) {
+        console.log('First parse attempt failed:', firstError.message);
+        
+        // JSON 수정 재시도
+        const fixedJson = jsonText
+          .replace(/([{,]\s*)(\w+):/g, '$1"$2":')  // 키에 따옴표 추가
+          .replace(/:\s*([^",\[\]{}]+)(\s*[,}])/g, ': "$1"$2')  // 값에 따옴표 추가
+          .replace(/: ""(\d+)""([,}])/g, ': $1$2')  // 숫자 값 수정
+          .replace(/: ""(true|false|null)""([,}])/g, ': $1$2');  // 불린/null 값 수정
+        
+        try {
+          parsed = JSON.parse(fixedJson);
+        } catch (secondError) {
+          console.log('Second parse attempt failed:', secondError.message);
+          throw new Error(`JSON parsing failed: ${firstError.message}`);
+        }
+      }
       
-      // 4. 응답 형식 검증
-      if (!parsed.summary) {
-        parsed.summary = 'Code review completed';
-      }
-      if (!Array.isArray(parsed.issues)) {
-        parsed.issues = [];
-      }
-
-      // 5. 응답 정규화 및 기본값 설정
-      return {
-        summary: parsed.summary,
-        issues: parsed.issues.map(issue => ({
-          line: issue.line || null,
-          severity: issue.severity || 'medium',
-          type: issue.type || 'general',
-          title: issue.title || 'Issue found',
-          description: issue.description || '',
-          suggestion: issue.suggestion || '',
-          codeExample: issue.code_example || null
-        })),
-        positiveFeedback: parsed.positive_feedback || [],
-        overallScore: parsed.overall_score || 5
+      // 5. 응답 형식 검증 및 기본값 설정
+      const result = {
+        summary: parsed.summary || 'Code review completed',
+        issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+        positiveFeedback: Array.isArray(parsed.positive_feedback) ? parsed.positive_feedback : [],
+        overallScore: typeof parsed.overall_score === 'number' ? parsed.overall_score : 5
       };
+      
+      // 6. 이슈 정규화
+      result.issues = result.issues.map(issue => ({
+        line: typeof issue.line === 'number' ? issue.line : null,
+        severity: ['low', 'medium', 'high', 'critical'].includes(issue.severity) ? issue.severity : 'medium',
+        type: ['bug', 'security', 'performance', 'style', 'maintainability'].includes(issue.type) ? issue.type : 'general',
+        title: issue.title || 'Issue found',
+        description: issue.description || '',
+        suggestion: issue.suggestion || '',
+        codeExample: issue.code_example || issue.codeExample || null
+      }));
+      
+      console.log(`Successfully parsed review with ${result.issues.length} issues`);
+      return result;
+      
     } catch (error) {
-      // JSON 파싱 실패 시 fallback 응답 생성
+      console.error('Parse error details:', error);
+      console.error('Original response:', responseText);
+      
+      // JSON 파싱 실패 시 안전한 fallback 응답 생성
       return {
-        summary: 'Code review completed, but response parsing failed.',
+        summary: 'Code review was processed, but the response format was invalid.',
         issues: [{
           line: null,
-          severity: 'medium',
-          type: 'general',
-          title: 'Review Processing Error',
-          description: `Failed to parse review response: ${error.message}`,
-          suggestion: 'Please check the code manually.',
+          severity: 'low',
+          type: 'system',
+          title: 'Response Parsing Issue',
+          description: `AI 응답 파싱 중 오류가 발생했습니다: ${error.message}. 원본 응답을 확인해주세요.`,
+          suggestion: '코드를 수동으로 검토하거나 다시 시도해주세요.',
           codeExample: null
         }],
         positiveFeedback: [],
