@@ -1,7 +1,8 @@
 # Claude AI Code Review Action
 
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Claude%20Code%20Review-blue.svg?colorA=24292e&colorB=0366d6&style=flat&longCache=true&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAM6wAADOsB5dZE0gAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAERSURBVCiRhZG/SsMxFEZPfsVJ61jbxaF0cRQRcRJ9hlYn30IHN/+9iquDCOIsblIrOjqKgy5aKoJQj4O3EEtbPwhJbr6Te28CmdSKeqzeqr0YbfVIrTBKakvtOl5dtTkK+v4HfA9PEyBFCY9AGVgCBLaBp1jPAyfAJ/AAdIEG0dNAiyP7+K1qIfMdonZic6+WJoBJvQlvuwDqcXadUuqPA1NKAlexbRTAIMvMOCjTbMwl1LtI/6KWJ5Q6rT6Ht1MA58AX8Apcqqt5r2qhrgAXQC3CZ6i1+KMd9TRu3MvA3aH/fFPnBodb6oe6HM8+lYHrGdRXW8M9bMZtPXUji69lmf5Cmamq7quNLFZXD9Rq7v0Bpc1o/tp0fisAAAAASUVORK5CYII=)](https://github.com/marketplace/actions/claude-ai-code-review)
+[![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-blue.svg?logo=github-actions)](https://github.com/chimaek/claude-code-review-action)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.0.1-green.svg)](https://github.com/chimaek/claude-code-review-action/releases)
 
 Claude API를 활용한 지능형 AI 코드 리뷰 GitHub Action입니다. Pull Request와 Push 이벤트에서 자동으로 코드를 분석하고 개선 사항을 제안합니다.
 
@@ -17,7 +18,24 @@ Claude API를 활용한 지능형 AI 코드 리뷰 GitHub Action입니다. Pull 
 ## 📸 스크린샷
 
 ### PR 리뷰 댓글 예시
-![PR Review Comment](https://github.com/chimaek/claude-code-review-action/blob/master/example/images/pr_example.png)
+```markdown
+## 🤖 Claude AI 코드 리뷰
+
+**리뷰 타입:** 🔍 full  
+**검토한 파일:** 3개  
+**발견된 이슈:** 12개  
+
+### 📋 리뷰 요약
+
+| 심각도 | 개수 | 설명 |
+|--------|------|------|
+| 🔴 **Critical** | 2 | 즉시 수정이 필요한 심각한 문제 |
+| 🟠 **High** | 4 | 중요한 문제, 빠른 수정 권장 |
+| 🟡 **Medium** | 6 | 일반적인 개선 사항 |
+
+### 📁 파일별 상세 리뷰
+... (상세한 이슈 목록)
+```
 
 
 ## 🚀 빠른 시작
@@ -46,7 +64,7 @@ on:
   pull_request:
     types: [opened, synchronize]
   push:
-    branches: [main, develop]
+    branches: [develop, feature/*]  # master 브랜치는 제외 (선택사항)
 
 jobs:
   review:
@@ -54,6 +72,8 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      issues: write
+      repository-projects: read
     
     steps:
     - uses: actions/checkout@v4
@@ -61,12 +81,14 @@ jobs:
         fetch-depth: 0
     
     - name: Claude AI Code Review
-      uses: chimaek/claude-code-review-action@v1.0.1
+      uses: chimaek/claude-code-review-action@master
       with:
         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
         github_token: ${{ secrets.GITHUB_TOKEN }}
         review_type: full
         language: ko
+        max_files: 8
+        severity_filter: medium
 ```
 
 ## 📋 설정 옵션
@@ -86,7 +108,7 @@ jobs:
 | `language` | 리뷰 언어 (`ko`, `en`, `ja`, `zh`) | `en` |
 | `file_patterns` | 리뷰할 파일 패턴 (쉼표 구분) | `**/*.js,**/*.ts,**/*.jsx,**/*.tsx,**/*.py,**/*.java,**/*.go,**/*.rs` |
 | `exclude_patterns` | 제외할 파일 패턴 (쉼표 구분) | `**/node_modules/**,**/dist/**,**/build/**` |
-| `max_files` | 최대 리뷰 파일 수 | `10` |
+| `max_files` | 최대 리뷰 파일 수 | `8` |
 | `severity_filter` | 최소 심각도 필터 (`low`, `medium`, `high`, `critical`) | `medium` |
 
 ### 출력값
@@ -102,7 +124,7 @@ jobs:
 ### 기본 사용
 
 ```yaml
-- uses: chimaek/claude-code-review-action@v1
+- uses: chimaek/claude-code-review-action@master
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -111,34 +133,37 @@ jobs:
 ### 보안 중심 리뷰
 
 ```yaml
-- uses: chimaek/claude-code-review-action@v1
+- uses: chimaek/claude-code-review-action@master
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
     review_type: security
     severity_filter: low
+    max_files: 10
 ```
 
 ### 특정 파일만 리뷰
 
 ```yaml
-- uses: chimaek/claude-code-review-action@v1
+- uses: chimaek/claude-code-review-action@master
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
     file_patterns: "src/**/*.js,lib/**/*.js"
-    exclude_patterns: "**/*.test.js,**/*.spec.js"
+    exclude_patterns: "**/*.test.js,**/*.spec.js,**/node_modules/**"
 ```
 
-### 한국어 리뷰
+### 한국어 고성능 리뷰 (권장)
 
 ```yaml
-- uses: chimaek/claude-code-review-action@v1
+- uses: chimaek/claude-code-review-action@master
   with:
     anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
     github_token: ${{ secrets.GITHUB_TOKEN }}
     language: ko
     review_type: full
+    max_files: 8
+    severity_filter: medium
 ```
 
 ## 📈 버전 히스토리
@@ -189,15 +214,59 @@ jobs:
 ```yaml
 # JavaScript/TypeScript 프로젝트
 file_patterns: "**/*.{js,jsx,ts,tsx}"
+exclude_patterns: "**/node_modules/**,**/dist/**,**/*.test.js,**/*.spec.js"
 
-# Python 프로젝트
+# Python 프로젝트  
 file_patterns: "**/*.py"
+exclude_patterns: "**/venv/**,**/__pycache__/**,**/test_*.py"
 
 # 다중 언어 프로젝트
 file_patterns: "**/*.{js,py,go,java}"
+exclude_patterns: "**/node_modules/**,**/target/**,**/build/**"
 
 # 특정 디렉토리만
-file_patterns: "src/**/*,lib/**/*"
+file_patterns: "src/**/*.js,lib/**/*.js"
+exclude_patterns: "**/*.min.js,**/bundle.js"
+```
+
+### 권장 워크플로우 설정
+
+```yaml
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [develop, feature/*]
+    # master/main 브랜치는 제외 (배포용)
+
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      repository-projects: read
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Claude AI Code Review
+      uses: chimaek/claude-code-review-action@master
+      with:
+        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        review_type: full
+        language: ko
+        max_files: 8
+        severity_filter: medium
+        file_patterns: "src/**/*.{js,ts,jsx,tsx,py}"
+        exclude_patterns: "**/*.test.*,**/*.spec.*,**/node_modules/**"
+      continue-on-error: true  # 리뷰 실패해도 CI 통과
 ```
 
 ## 🚧 문제 해결
@@ -216,14 +285,17 @@ file_patterns: "src/**/*,lib/**/*"
 permissions:
   contents: read
   pull-requests: write
+  issues: write                    # 커밋 댓글 작성용
+  repository-projects: read        # GitHub API 접근용
 ```
-워크플로우에 위 권한 설정 추가
+워크플로우에 위 권한 설정 추가 (특히 Push 이벤트 시 필요)
 
 ### 파일 크기 제한
 
 **문제**: 큰 파일 리뷰 실패
-- 단일 파일 크기 제한: 1MB
-- `max_files` 값을 줄여서 API 부하 감소
+- 단일 파일 크기 제한: **100KB** (v1.0.1+에서 자동 필터링)
+- 파일 내용 5KB로 자동 절삭 (성능 최적화)
+- `max_files` 값을 8 이하로 설정 권장
 
 ## 🤝 기여하기
 
@@ -246,9 +318,22 @@ permissions:
 ## 📞 지원
 
 - 이슈 리포트: [GitHub Issues](https://github.com/chimaek/claude-code-review-action/issues)
-- 문서: [Wiki](https://github.com/chimaek/claude-code-review-action/wiki)
+- 실제 동작 확인: [Actions 탭](https://github.com/chimaek/claude-code-review-action/actions)
+- 소스 코드: [GitHub Repository](https://github.com/chimaek/claude-code-review-action)
 - 이메일: pipiru100@gmail.com
+
+## 🔍 리뷰 결과 확인 방법
+
+### Pull Request의 경우
+- PR 댓글에 자동으로 리뷰 결과가 작성됩니다
+
+### Push의 경우  
+- 해당 커밋 페이지에서 댓글로 리뷰 결과 확인
+- 예시: `https://github.com/your-repo/commit/커밋해시`
+
+### Actions 로그
+- `Actions` 탭 → `AI Code Review` 워크플로우에서 실행 로그 확인
 
 ---
 
-Made with ❤️ by [chimaek]
+Made with ❤️ by [chimaek](https://github.com/chimaek)
