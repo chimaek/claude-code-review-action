@@ -10,6 +10,45 @@ on:
     types: [created]
 
 jobs:
+  # 코드 리뷰 (자기 자신의 코드를 리뷰)
+  code-review:
+    name: AI Code Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js for build
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Build action for self-test
+      run: |
+        npm ci
+        npm run build
+    
+    - name: Self Code Review
+      uses: ./
+      with:
+        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        review_type: full
+        language: ko
+        file_patterns: "src/**/*.js,*.yml,*.json,*.md"
+        exclude_patterns: "dist/**,node_modules/**"
+        max_files: 15
+        severity_filter: medium
+      continue-on-error: true
+
   # 빌드 및 테스트
   build:
     name: Build and Test
