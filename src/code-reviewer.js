@@ -21,7 +21,7 @@ class CodeReviewer {
     // Claude API 클라이언트 초기화
     this.client = new Anthropic({ apiKey });
     this.language = language;
-    this.maxTokens = 2000; // Claude 응답 최대 토큰 수 (속도 개선)
+    this.maxTokens = 4000; // Claude 응답 최대 토큰 수 (JSON 완성도 향상)
   }
 
   /**
@@ -174,20 +174,60 @@ JSON 응답 (간결하게):
    */
   parseResponse(responseText) {
     try {
-      // JSON 응답 추출 (Claude가 마크다운 블록으로 감쌀 수 있음)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('No valid JSON found in response');
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]);
+      console.log('Raw Claude response:', responseText);
       
-      // 응답 형식 검증
-      if (!parsed.summary || !Array.isArray(parsed.issues)) {
-        throw new Error('Invalid response format');
+      // 1. 여러 방법으로 JSON 추출 시도
+      let jsonText = null;
+      
+      // 방법 1: 마크다운 코드 블록에서 추출
+      const codeBlockMatch = responseText.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+      if (codeBlockMatch) {
+        jsonText = codeBlockMatch[1];
+      }
+      
+      // 방법 2: 일반 JSON 패턴 매칭
+      if (!jsonText) {
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          jsonText = jsonMatch[0];
+        }
+      }
+      
+      // 방법 3: 첫 번째 { 부터 마지막 } 까지
+      if (!jsonText) {
+        const firstBrace = responseText.indexOf('{');
+        const lastBrace = responseText.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+          jsonText = responseText.substring(firstBrace, lastBrace + 1);
+        }
+      }
+      
+      if (!jsonText) {
+        throw new Error('No JSON found in response');
+      }
+      
+      // 2. JSON 정리 (일반적인 파싱 오류 수정)
+      jsonText = jsonText
+        .replace(/,\s*}/g, '}')  // 마지막 콤마 제거
+        .replace(/,\s*]/g, ']')  // 배열 마지막 콤마 제거
+        .replace(/\n/g, '\\n')   // 개행 문자 이스케이프
+        .replace(/\t/g, '\\t')   // 탭 문자 이스케이프
+        .replace(/\r/g, '\\r');  // 캐리지 리턴 이스케이프
+      
+      console.log('Cleaned JSON text:', jsonText);
+      
+      // 3. JSON 파싱 시도
+      const parsed = JSON.parse(jsonText);
+      
+      // 4. 응답 형식 검증
+      if (!parsed.summary) {
+        parsed.summary = 'Code review completed';
+      }
+      if (!Array.isArray(parsed.issues)) {
+        parsed.issues = [];
       }
 
-      // 응답 정규화 및 기본값 설정
+      // 5. 응답 정규화 및 기본값 설정
       return {
         summary: parsed.summary,
         issues: parsed.issues.map(issue => ({
@@ -203,8 +243,10 @@ JSON 응답 (간결하게):
         overallScore: parsed.overall_score || 5
       };
     } catch (error) {
+      console.error('JSON parsing failed:', error.message);
+      console.error('Problematic text:', responseText);
+      
       // JSON 파싱 실패 시 fallback 응답 생성
-      // 이렇게 하면 액션이 완전히 실패하지 않고 계속 진행됨
       return {
         summary: 'Code review completed, but response parsing failed.',
         issues: [{
